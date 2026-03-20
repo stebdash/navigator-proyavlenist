@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Навігатор «Проявленості»</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --purple: #534AB7;
+    --purple-light: #EEEDFE;
+    --purple-mid: #AFA9EC;
+    --teal: #0F6E56;
+    --teal-light: #E1F5EE;
+    --coral: #993C1D;
+    --coral-light: #FAECE7;
+    --amber: #854F0B;
+    --amber-light: #FAEEDA;
+    --bg: #F8F7FF;
+    --card: #FFFFFF;
+    --border: rgba(83,74,183,0.15);
+    --text: #1a1a2e;
+    --text-secondary: #6b6b8a;
+    --text-hint: #a0a0b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Georgia', serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  
+  /* AUTH */
+  #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .auth-card { background: var(--card); border-radius: 20px; padding: 32px 28px; width: 100%; max-width: 400px; border: 1px solid var(--border); }
+  .auth-logo { font-size: 28px; font-weight: 700; color: var(--purple); margin-bottom: 6px; letter-spacing: -0.5px; }
+  .auth-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 28px; font-style: italic; }
+  .auth-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; display: block; }
+  .auth-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; color: var(--text); background: var(--bg); outline: none; transition: border-color .2s; font-family: inherit; }
+  .auth-input:focus { border-color: var(--purple); }
+  .auth-btn { width: 100%; padding: 14px; background: var(--purple); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 20px; transition: opacity .2s; font-family: inherit; }
+  .auth-btn:hover { opacity: .9; }
+  .auth-error { font-size: 13px; color: var(--coral); margin-top: 10px; text-align: center; }
+  .auth-field { margin-bottom: 16px; }
+
+  /* APP */
+  #app-screen { display: none; max-width: 480px; margin: 0 auto; padding-bottom: 80px; }
+  
+  /* HEADER */
+  .header { background: var(--purple); padding: 16px 20px 12px; position: sticky; top: 0; z-index: 100; }
+  .header-title { font-size: 16px; font-weight: 700; color: white; letter-spacing: -0.3px; }
+  .header-sub { font-size: 12px; color: var(--purple-mid); margin-top: 2px; }
+
+  /* BOTTOM NAV */
+  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: white; border-top: 1px solid var(--border); display: flex; z-index: 100; }
+  .nav-item { flex: 1; padding: 10px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border: none; background: none; font-family: inherit; }
+  .nav-icon { font-size: 18px; }
+  .nav-label { font-size: 9px; color: var(--text-hint); font-weight: 500; }
+  .nav-item.on .nav-label { color: var(--purple); }
+  .nav-item.on .nav-icon { filter: none; }
+
+  /* PAGES */
+  .page { display: none; padding: 16px; }
+  .page.on { display: block; }
+
+  /* CARDS */
+  .card { background: var(--card); border-radius: 14px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--border); }
+  .card-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+  .section-label { font-size: 10px; font-weight: 700; color: var(--text-hint); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+
+  /* FORM ELEMENTS */
+  .field { margin-bottom: 16px; }
+  .field-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; display: block; }
+  .field-hint { font-size: 11px; color: var(--text-hint); font-style: italic; margin-bottom: 5px; }
+  textarea, input[type=text], input[type=date] { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; color: var(--text); background: var(--bg); outline: none; transition: border-color .2s; font-family: inherit; resize: none; }
+  textarea:focus, input[type=text]:focus, input[type=date]:focus { border-color: var(--purple); }
+  textarea { min-height: 72px; }
+
+  /* SCALE */
+  .scale-row { display: flex; gap: 4px; }
+  .scale-btn { flex: 1; padding: 8px 0; border-radius: 8px; font-size: 12px; font-weight: 600; border: 1.5px solid var(--border); background: var(--bg); color: var(--text-hint); cursor: pointer; transition: all .15s; text-align: center; }
+  .scale-btn.on { background: var(--purple-light); color: var(--purple); border-color: var(--purple-mid); }
+
+  /* SAVE BTN */
+  .save-btn { width: 100%; padding: 13px; background: var(--purple); color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 4px; transition: opacity .2s; font-family: inherit; }
+  .save-btn:hover { opacity: .9; }
+  .save-btn:disabled { opacity: .5; }
+
+  /* ENTRY CARDS */
+  .entry-item { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; overflow: hidden; }
+  .entry-head { padding: 10px 14px; background: var(--bg); display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  .entry-date { font-size: 13px; font-weight: 600; color: var(--text); }
+  .mood-badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 700; }
+  .mood-hi { background: var(--teal-light); color: var(--teal); }
+  .mood-mid { background: var(--amber-light); color: var(--amber); }
+  .mood-lo { background: var(--coral-light); color: var(--coral); }
+  .entry-body { display: none; padding: 12px 14px; border-top: 1px solid var(--border); }
+  .entry-body.op { display: block; }
+  .entry-row { margin-bottom: 8px; }
+  .entry-row-label { font-size: 10px; color: var(--text-hint); margin-bottom: 2px; font-weight: 600; text-transform: uppercase; }
+  .entry-row-text { font-size: 13px; color: var(--text); line-height: 1.5; }
+
+  /* ACCORDION */
+  .accord { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; overflow: hidden; }
+  .accord-head { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; background: var(--card); }
+  .accord-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .accord-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+  .badge-done { background: var(--teal-light); color: var(--teal); }
+  .badge-prog { background: var(--amber-light); color: var(--amber); }
+  .badge-wait { background: var(--bg); color: var(--text-hint); border: 1px solid var(--border); }
+  .accord-body { display: none; padding: 14px; border-top: 1px solid var(--border); background: var(--bg); }
+  .accord-body.op { display: block; }
+
+  /* PRACTICE */
+  .practice-item { background: var(--card); border-radius: 10px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); }
+  .practice-name { font-size: 12px; font-weight: 700; color: var(--purple); margin-bottom: 10px; }
+
+  /* TRANSFORM TABS */
+  .tr-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tr-tab { flex: 1; padding: 8px; border-radius: 10px; font-size: 12px; font-weight: 600; border: 1.5px solid var(--border); background: var(--bg); color: var(--text-hint); cursor: pointer; text-align: center; font-family: inherit; transition: all .15s; }
+  .tr-tab.on { background: var(--purple-light); color: var(--purple); border-color: var(--purple-mid); }
+  .tr-page { display: none; }
+  .tr-page.on { display: block; }
+
+  /* INFO BOX */
+  .info-box { border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px; font-style: italic; line-height: 1.6; }
+  .info-purple { background: var(--purple-light); color: var(--purple); }
+  .info-teal { background: var(--teal-light); color: var(--teal); }
+  .info-coral { background: var(--coral-light); color: var(--coral); }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .stat-card { background: var(--card); border-radius: 12px; padding: 14px; text-align: center; border: 1px solid var(--border); }
+  .stat-num { font-size: 26px; font-weight: 700; color: var(--text); }
+  .stat-label { font-size: 11px; color: var(--text-hint); margin-top: 3px; }
+
+  /* PROGRESS BARS */
+  .pb-item { margin-bottom: 10px; }
+  .pb-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+  .pb-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .pb-fill { height: 100%; background: var(--purple); border-radius: 3px; transition: width .6s ease; }
+
+  /* COMPARE */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .compare-card { border-radius: 10px; padding: 12px; }
+  .compare-start { background: var(--coral-light); }
+  .compare-now { background: var(--teal-light); }
+  .compare-label { font-size: 10px; font-weight: 700; margin-bottom: 5px; }
+  .compare-start .compare-label { color: var(--coral); }
+  .compare-now .compare-label { color: var(--teal); }
+  .compare-text { font-size: 12px; line-height: 1.5; }
+  .compare-start .compare-text { color: #712B13; }
+  .compare-now .compare-text { color: #085041; }
+
+  /* PROOF LIST */
+  .proof-list { font-size: 13px; color: var(--text); line-height: 2.2; }
+  .proof-list div { border-bottom: 1px solid var(--border); padding: 4px 0; }
+  .proof-list div:last-child { border-bottom: none; }
+
+  /* LOADING */
+  .loading { text-align: center; padding: 40px; color: var(--text-hint); font-size: 14px; font-style: italic; }
+
+  /* ADMIN LINK */
+  .admin-link { text-align: center; padding: 12px; font-size: 12px; color: var(--text-hint); }
+  .admin-link a { color: var(--purple); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">Навігатор</div>
+    <div class="auth-sub">«Проявленості» · Твій особистий простір</div>
+    <div class="auth-field">
+      <label class="auth-label">Твоє ім'я</label>
+      <input class="auth-input" type="text" id="auth-name" placeholder="Як тебе звати?">
+    </div>
+    <div class="auth-field">
+      <label class="auth-label">Email</label>
+      <input class="auth-input" type="text" id="auth-email" placeholder="твій@email.com">
+    </div>
+    <button class="auth-btn" onclick="login()">Увійти в щоденник</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="app-screen">
+  <div class="header">
+    <div class="header-title">Навігатор «Проявленості»</div>
+    <div class="header-sub" id="user-name-header">Завантаження...</div>
+  </div>
+
+  <!-- PAGES -->
+  <div id="page-diary" class="page on">
+    <div class="card">
+      <div class="section-label">Запис сьогодні</div>
+      <div class="field">
+        <label class="field-label">Мій стан сьогодні</label>
+        <div class="scale-row" id="diary-mood">
+          <div class="scale-btn" onclick="setScale('diary-mood',1)">1</div>
+          <div class="scale-btn" onclick="setScale('diary-mood',2)">2</div>
+          <div class="scale-btn" onclick="setScale('diary-mood',3)">3</div>
+          <div class="scale-btn" onclick="setScale('diary-mood',4)">4</div>
+          <div class="scale-btn" onclick="setScale('diary-mood',5)">5</div>
+          <div class="scale-btn" onclick="setScale('diary-mood',6)">6</div>
+          <div class="scale-btn" onclick="setScale('diary-mood',7)">7</div>
+          <div class="scale-btn" onclick="setScale('diary-mood',8)">8</div>
+          <div class="scale-btn" onclick="setScale('diary-mood',9)">9</div>
+          <div class="scale-btn" onclick="setScale('diary-mood',10)">10</div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Одне речення про цей день</label>
+        <input type="text" id="diary-sentence" placeholder="Наприклад: складний але я не здалась">
+      </div>
+      <div class="field">
+        <div class="field-hint">Вільний простір — пиши будь-які емоції, рефлексії, спостереження як у звичайному щоденнику...</div>
+        <textarea id="diary-free" rows="5" placeholder="Тут немає правил..."></textarea>
+      </div>
+      <button class="save-btn" onclick="saveDiary()">Зберегти запис</button>
+    </div>
+    <div class="section-label" style="padding: 0 4px;">Мої записи</div>
+    <div id="diary-entries"><div class="loading">Завантаження записів...</div></div>
+  </div>
+
+  <div id="page-modules" class="page">
+    <div id="modules-list"><div class="loading">Завантаження...</div></div>
+  </div>
+
+  <div id="page-wins" class="page">
+    <div class="card">
+      <div class="card-title">⭐ Мої докази змін</div>
+      <div class="accord">
+        <div class="accord-head" onclick="togAccord(this)"><span class="accord-title">Я зробила ___ попри страх</span><span>▾</span></div>
+        <div class="accord-body op">
+          <div class="proof-list" id="proof-fear"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input type="text" id="proof-fear-input" placeholder="Опиши + дата" style="flex:1">
+            <button class="save-btn" style="width:auto;padding:10px 16px" onclick="addProof('despite_fear','proof-fear-input','proof-fear')">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="accord">
+        <div class="accord-head" onclick="togAccord(this)"><span class="accord-title">Вперше в житті я ___</span><span>▾</span></div>
+        <div class="accord-body">
+          <div class="proof-list" id="proof-first"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input type="text" id="proof-first-input" placeholder="Опиши + дата" style="flex:1">
+            <button class="save-btn" style="width:auto;padding:10px 16px" onclick="addProof('first_time','proof-first-input','proof-first')">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="accord">
+        <div class="accord-head" onclick="togAccord(this)"><span class="accord-title">Я сказала "ні" коли ___</span><span>▾</span></div>
+        <div class="accord-body">
+          <div class="proof-list" id="proof-no"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input type="text" id="proof-no-input" placeholder="Опиши + дата" style="flex:1">
+            <button class="save-btn" style="width:auto;padding:10px 16px" onclick="addProof('said_no','proof-no-input','proof-no')">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="accord">
+        <div class="accord-head" onclick="togAccord(this)"><span class="accord-title">Я дозволила собі ___</span><span>▾</span></div>
+        <div class="accord-body">
+          <div class="proof-list" id="proof-allowed"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input type="text" id="proof-allowed-input" placeholder="Опиши + дата" style="flex:1">
+            <button class="save-btn" style="width:auto;padding:10px 16px" onclick="addProof('allowed_myself','proof-allowed-input','proof-allowed')">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">🏆 Перемога тижня</div>
+      <div id="weekly-wins-list"></div>
+    </div>
+  </div>
+
+  <div id="page-transform" class="page">
+    <div class="tr-tabs">
+      <button class="tr-tab on" onclick="swTr(0,this)">Початок</button>
+      <button class="tr-tab" onclick="swTr(1,this)">Середина</button>
+      <button class="tr-tab" onclick="swTr(2,this)">Фінал</button>
+    </div>
+    <div id="tr-start" class="tr-page on">
+      <div class="info-box info-purple">Це не тест. Це дзеркало. Відповідай чесно — ти повернешся сюди в середині і в кінці курсу щоб побачити як змінилась.</div>
+      <div class="card">
+        <div class="field"><label class="field-label">Що мене найбільше тригерить?</label><div class="field-hint">В якій ситуації? З якими людьми? В яких темах?</div><textarea id="tr-s-triggers" rows="3" placeholder="Напиши чесно..."></textarea></div>
+        <div class="field"><label class="field-label">Чого я боюсь?</label><div class="field-hint">У стосунках? В реалізації? В тому щоб бути собою?</div><textarea id="tr-s-fears-rel" rows="2" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Де я не проявляюсь?</label><div class="field-hint">В якій сфері найбільше? Що саме не робиш через страх?</div><textarea id="tr-s-not-showing" rows="2" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Які рішення відкладаю?</label><div class="field-hint">Скільки часу вже відкладаю? Що заважає?</div><textarea id="tr-s-postponed" rows="2" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Що я думаю про себе чесно?</label><div class="field-hint">Яку фразу про себе повторюю найчастіше?</div><textarea id="tr-s-honest" rows="2" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Як виглядає моє життя зараз — в 3 реченнях?</label><textarea id="tr-s-life-now" rows="3" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Що я хочу щоб змінилось після курсу?</label><div class="field-hint">Без фільтрів, чесно</div><textarea id="tr-s-want-change" rows="3" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Мій стан зараз (1–10)</label>
+          <div class="scale-row" id="tr-s-mood" style="margin-top:6px">
+            <div class="scale-btn" onclick="setScale('tr-s-mood',1)">1</div><div class="scale-btn" onclick="setScale('tr-s-mood',2)">2</div><div class="scale-btn" onclick="setScale('tr-s-mood',3)">3</div><div class="scale-btn" onclick="setScale('tr-s-mood',4)">4</div><div class="scale-btn" onclick="setScale('tr-s-mood',5)">5</div><div class="scale-btn" onclick="setScale('tr-s-mood',6)">6</div><div class="scale-btn" onclick="setScale('tr-s-mood',7)">7</div><div class="scale-btn" onclick="setScale('tr-s-mood',8)">8</div><div class="scale-btn" onclick="setScale('tr-s-mood',9)">9</div><div class="scale-btn" onclick="setScale('tr-s-mood',10)">10</div>
+          </div>
+        </div>
+        <button class="save-btn" onclick="saveTransform('start')">Зберегти</button>
+      </div>
+    </div>
+    <div id="tr-mid" class="tr-page">
+      <div class="info-box info-teal">Перечитай свої відповіді з Початку. Що змінилось?</div>
+      <div class="card">
+        <div class="field"><label class="field-label">Що мене найбільше тригерить зараз?</label><textarea id="tr-m-triggers" rows="3" placeholder="Порівняй з початком..."></textarea></div>
+        <div class="field"><label class="field-label">Чого я боюсь зараз?</label><textarea id="tr-m-fears" rows="2" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Де я вже проявляюсь?</label><textarea id="tr-m-showing" rows="2" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Що змінилось з початку курсу?</label><textarea id="tr-m-changed" rows="3" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Мій стан зараз (1–10)</label>
+          <div class="scale-row" id="tr-m-mood" style="margin-top:6px">
+            <div class="scale-btn" onclick="setScale('tr-m-mood',1)">1</div><div class="scale-btn" onclick="setScale('tr-m-mood',2)">2</div><div class="scale-btn" onclick="setScale('tr-m-mood',3)">3</div><div class="scale-btn" onclick="setScale('tr-m-mood',4)">4</div><div class="scale-btn" onclick="setScale('tr-m-mood',5)">5</div><div class="scale-btn" onclick="setScale('tr-m-mood',6)">6</div><div class="scale-btn" onclick="setScale('tr-m-mood',7)">7</div><div class="scale-btn" onclick="setScale('tr-m-mood',8)">8</div><div class="scale-btn" onclick="setScale('tr-m-mood',9)">9</div><div class="scale-btn" onclick="setScale('tr-m-mood',10)">10</div>
+          </div>
+        </div>
+        <button class="save-btn" onclick="saveTransform('mid')">Зберегти</button>
+      </div>
+    </div>
+    <div id="tr-final" class="tr-page">
+      <div class="info-box info-teal">Перечитай Початок і Середину. Яка ти зараз?</div>
+      <div class="card">
+        <div class="field"><label class="field-label">Які думки змінились?</label><textarea id="tr-f-changed" rows="3" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Які страхи більше не мають влади?</label><textarea id="tr-f-fears-gone" rows="2" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Яка я зараз? (в 3 реченнях)</label><textarea id="tr-f-who" rows="3" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Що б сказала собі на старті?</label><textarea id="tr-f-message" rows="3" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Що було найціннішим на курсі?</label><textarea id="tr-f-valuable" rows="2" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Що можна покращити в курсі?</label><textarea id="tr-f-improve" rows="2" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label">Мій стан на фініші (1–10)</label>
+          <div class="scale-row" id="tr-f-mood" style="margin-top:6px">
+            <div class="scale-btn" onclick="setScale('tr-f-mood',1)">1</div><div class="scale-btn" onclick="setScale('tr-f-mood',2)">2</div><div class="scale-btn" onclick="setScale('tr-f-mood',3)">3</div><div class="scale-btn" onclick="setScale('tr-f-mood',4)">4</div><div class="scale-btn" onclick="setScale('tr-f-mood',5)">5</div><div class="scale-btn" onclick="setScale('tr-f-mood',6)">6</div><div class="scale-btn" onclick="setScale('tr-f-mood',7)">7</div><div class="scale-btn" onclick="setScale('tr-f-mood',8)">8</div><div class="scale-btn" onclick="setScale('tr-f-mood',9)">9</div><div class="scale-btn" onclick="setScale('tr-f-mood',10)">10</div>
+          </div>
+        </div>
+        <button class="save-btn" onclick="saveTransform('final')">Зберегти</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-pause" class="page">
+    <div class="info-box info-coral" style="margin-bottom:16px">Ти не йдеш назад — ти просто зупинилась. Зафіксуй момент щоб знати звідки повертатись.</div>
+    <div class="card">
+      <div class="field"><label class="field-label">Коли це сталось?</label><input type="text" id="pause-when" placeholder="Дата і час..."></div>
+      <div class="field"><label class="field-label">На якому етапі я зупинилась?</label><input type="text" id="pause-stage" placeholder="Модуль, урок або ситуація..."></div>
+      <div class="field"><label class="field-label">Що відбувається? (без оцінок)</label><textarea id="pause-what" rows="3" placeholder="Просто опиши..."></textarea></div>
+      <div class="field"><label class="field-label">Що мені зараз потрібно?</label><textarea id="pause-need" rows="2" placeholder="Відпочинок? Підтримка? Менше навантаження?"></textarea></div>
+      <div class="field"><label class="field-label">Як я з цього вийшла?</label><div class="field-hint">Можна заповнити пізніше</div><textarea id="pause-return" rows="2" placeholder="..."></textarea></div>
+      <button class="save-btn" onclick="savePause()">Зафіксувати паузу</button>
+    </div>
+    <div class="section-label" style="padding:0 4px">Мої паузи</div>
+    <div id="pauses-list"><div class="loading">Завантаження...</div></div>
+  </div>
+
+  <div id="page-progress" class="page">
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="stat-num" id="stat-entries">—</div><div class="stat-label">Записів</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-mood" style="color:var(--purple)">—</div><div class="stat-label">Середній стан</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-pauses" style="color:var(--coral)">—</div><div class="stat-label">Паузи</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-proofs" style="color:var(--teal)">—</div><div class="stat-label">Доказів змін</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Динаміка стану</div>
+      <div id="mood-chart"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Тоді і зараз</div>
+      <div id="compare-section"><div class="loading">Завантаження...</div></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="bottom-nav">
+    <button class="nav-item on" onclick="swPage('diary',this)"><span class="nav-icon">📓</span><span class="nav-label">Щоденник</span></button>
+    <button class="nav-item" onclick="swPage('modules',this)"><span class="nav-icon">📦</span><span class="nav-label">Модулі</span></button>
+    <button class="nav-item" onclick="swPage('wins',this)"><span class="nav-icon">⭐</span><span class="nav-label">Перемоги</span></button>
+    <button class="nav-item" onclick="swPage('transform',this)"><span class="nav-icon">🌱</span><span class="nav-label">Трансформація</span></button>
+    <button class="nav-item" onclick="swPage('pause',this)"><span class="nav-icon">⏸</span><span class="nav-label">Пауза</span></button>
+    <button class="nav-item" onclick="swPage('progress',this)"><span class="nav-icon">📈</span><span class="nav-label">Прогрес</span></button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://capicxneesmvvaedfrfi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhcGljeG5lZXNtdnZhZWRmcmZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NjMzMzUsImV4cCI6MjA4OTIzOTMzNX0.ggJWnxLjWt6yfU35hYUZn4EcuzxCKPXCL-oeIcBoueY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+const MODULES = [
+  { num: 1, name: 'Система розблокування', practices: ['Тест "Мій головний блок"','Перша історія','Перепрограмування','Драбина сміливості','Щоденник "Я зробила попри страх"'] },
+  { num: 2, name: 'Внутрішня опора', practices: ['Аудит рішень','Внутрішній критик','Межі без агресії','Самопідтримка як навичка','Доросла позиція'] },
+  { num: 3, name: 'Енергія та відновлення', practices: ['Аудит енергії','Інформаційна гігієна','Правило 3 завершень','Список живого','Формула 15 хв'] },
+  { num: 4, name: 'Нова ідентичність', practices: ['Мій сценарій','Портрет нової себе','Лист старій собі','Рішення нової себе','Якір нової себе'] },
+  { num: 5, name: 'Реалізація', practices: ['Чого я насправді хочу','Формула 1% руху','Страх великого життя','План 30 днів','Позиція проявленої жінки'] }
+];
+
+async function login() {
+  const name = document.getElementById('auth-name').value.trim();
+  const email = document.getElementById('auth-email').value.trim().toLowerCase();
+  const errEl = document.getElementById('auth-error');
+  if (!name || !email) { errEl.textContent = 'Введи ім\'я та email'; return; }
+  if (!email.includes('@')) { errEl.textContent = 'Перевір email'; return; }
+  errEl.textContent = '';
+  const slug = email.replace(/[^a-z0-9]/g,'_');
+  let { data: user } = await sb.from('users').select('*').eq('email', email).single();
+  if (!user) {
+    const { data: newUser, error } = await sb.from('users').insert({ name, email, slug }).select().single();
+    if (error) { errEl.textContent = 'Помилка входу. Спробуй ще раз.'; return; }
+    user = newUser;
+  }
+  currentUser = user;
+  localStorage.setItem('nav_user_id', user.id);
+  localStorage.setItem('nav_user_name', user.name);
+  showApp();
+}
+
+async function autoLogin() {
+  const id = localStorage.getItem('nav_user_id');
+  if (!id) return;
+  const { data: user } = await sb.from('users').select('*').eq('id', id).single();
+  if (user) { currentUser = user; showApp(); }
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('user-name-header').textContent = currentUser.name;
+  loadDiary(); loadModules(); loadProofs(); loadPauses(); loadProgress(); loadWeeklyWins();
+}
+
+function swPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('on'));
+  document.getElementById('page-' + name).classList.add('on');
+  btn.classList.add('on');
+}
+
+function setScale(id, n) {
+  document.querySelectorAll('#' + id + ' .scale-btn').forEach((b,i) => b.classList.toggle('on', i+1===n));
+}
+
+function getScale(id) {
+  const btns = document.querySelectorAll('#' + id + ' .scale-btn');
+  for(let i=0;i<btns.length;i++) if(btns[i].classList.contains('on')) return i+1;
+  return null;
+}
+
+function togAccord(head) {
+  const body = head.nextElementSibling;
+  body.classList.toggle('op');
+}
+
+function swTr(i, btn) {
+  const pages = ['tr-start','tr-mid','tr-final'];
+  pages.forEach((p,j) => document.getElementById(p).classList.toggle('on', i===j));
+  document.querySelectorAll('.tr-tab').forEach((b,j) => b.classList.toggle('on', i===j));
+}
+
+// DIARY
+async function saveDiary() {
+  const mood = getScale('diary-mood');
+  const sentence = document.getElementById('diary-sentence').value.trim();
+  const free = document.getElementById('diary-free').value.trim();
+  if (!mood) { alert('Вкажи свій стан (1-10)'); return; }
+  await sb.from('daily_entries').insert({ user_id: currentUser.id, mood, day_sentence: sentence, free_text: free });
+  document.getElementById('diary-sentence').value = '';
+  document.getElementById('diary-free').value = '';
+  document.querySelectorAll('#diary-mood .scale-btn').forEach(b => b.classList.remove('on'));
+  loadDiary();
+}
+
+async function loadDiary() {
+  const { data } = await sb.from('daily_entries').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(30);
+  const el = document.getElementById('diary-entries');
+  if (!data || !data.length) { el.innerHTML = '<div class="loading">Ще немає записів. Зроби перший!</div>'; return; }
+  el.innerHTML = data.map(e => {
+    const d = new Date(e.created_at);
+    const dateStr = d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+    const moodClass = e.mood >= 7 ? 'mood-hi' : e.mood >= 4 ? 'mood-mid' : 'mood-lo';
+    return `<div class="entry-item">
+      <div class="entry-head" onclick="togEntry(this)">
+        <span class="entry-date">${dateStr}</span>
+        <span class="mood-badge ${moodClass}">${e.mood}/10</span>
+      </div>
+      <div class="entry-body">
+        ${e.day_sentence ? `<div class="entry-row"><div class="entry-row-label">День</div><div class="entry-row-text">${e.day_sentence}</div></div>` : ''}
+        ${e.free_text ? `<div class="entry-row"><div class="entry-row-label">Нотатки</div><div class="entry-row-text">${e.free_text}</div></div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togEntry(head) { head.nextElementSibling.classList.toggle('op'); }
+
+// MODULES
+async function loadModules() {
+  const { data: reflections } = await sb.from('module_reflections').select('*').eq('user_id', currentUser.id);
+  const el = document.getElementById('modules-list');
+  el.innerHTML = MODULES.map(m => {
+    const ref = reflections ? reflections.filter(r => r.module_number === m.num) : [];
+    const practicesDone = ref.length;
+    const isComplete = ref.some(r => r.completed);
+    const badgeClass = isComplete ? 'badge-done' : practicesDone > 0 ? 'badge-prog' : 'badge-wait';
+    const badgeText = isComplete ? 'завершено' : practicesDone > 0 ? 'в процесі' : 'ще попереду';
+    const practicesHtml = m.practices.map((p, pi) => {
+      const existing = ref.find(r => r.what_touched && r.what_touched.startsWith(`P${pi+1}:`));
+      return `<div class="practice-item">
+        <div class="practice-name">Практика ${pi+1} — ${p}</div>
+        <div class="field"><label class="field-label" style="font-size:12px">Що я відчула під час практики?</label><textarea rows="2" id="m${m.num}p${pi+1}-felt" placeholder="Тілесно і емоційно...">${existing ? '' : ''}</textarea></div>
+        <div class="field"><label class="field-label" style="font-size:12px">Що мене здивувало або зачепило?</label><textarea rows="2" id="m${m.num}p${pi+1}-surprised" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label" style="font-size:12px">Мій стан зараз</label>
+          <div class="scale-row" id="m${m.num}p${pi+1}-mood" style="margin-top:4px">
+            ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<div class="scale-btn" onclick="setScale('m${m.num}p${pi+1}-mood',${n})">${n}</div>`).join('')}
+          </div>
+        </div>
+        <button class="save-btn" style="font-size:12px;padding:10px" onclick="savePractice(${m.num},${pi+1},'${p}')">Зберегти практику ${pi+1}</button>
+      </div>`;
+    }).join('');
+    return `<div class="accord">
+      <div class="accord-head" onclick="togAccord(this)">
+        <span class="accord-title">Модуль ${m.num} — ${m.name}</span>
+        <span class="accord-badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="accord-body">
+        ${practicesHtml}
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+          <div class="section-label">Рефлексія після модуля</div>
+          <div class="field"><label class="field-label" style="font-size:12px">Що зачепило найбільше?</label><textarea rows="2" id="m${m.num}-touched" placeholder="..."></textarea></div>
+          <div class="field"><label class="field-label" style="font-size:12px">Де було складно?</label><textarea rows="2" id="m${m.num}-hard" placeholder="..."></textarea></div>
+          <div class="field"><label class="field-label" style="font-size:12px">Мій реальний крок</label><textarea rows="2" id="m${m.num}-step" placeholder="..."></textarea></div>
+          <div class="field"><label class="field-label" style="font-size:12px">Мій стан після модуля</label>
+            <div class="scale-row" id="m${m.num}-mood" style="margin-top:4px">
+              ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<div class="scale-btn" onclick="setScale('m${m.num}-mood',${n})">${n}</div>`).join('')}
+            </div>
+          </div>
+          <button class="save-btn" onclick="saveModuleReflection(${m.num})">Зберегти рефлексію модуля</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function savePractice(modNum, practiceNum, practiceName) {
+  const felt = document.getElementById(`m${modNum}p${practiceNum}-felt`).value.trim();
+  const surprised = document.getElementById(`m${modNum}p${practiceNum}-surprised`).value.trim();
+  const mood = getScale(`m${modNum}p${practiceNum}-mood`);
+  if (!mood) { alert('Вкажи стан після практики'); return; }
+  await sb.from('module_reflections').insert({
+    user_id: currentUser.id, module_number: modNum,
+    what_touched: `P${practiceNum}: ${felt}`, where_hard: surprised,
+    feelings: `${practiceName}`, mood, completed: false
+  });
+  alert(`Практика ${practiceNum} збережена! ✓`);
+}
+
+async function saveModuleReflection(modNum) {
+  const touched = document.getElementById(`m${modNum}-touched`).value.trim();
+  const hard = document.getElementById(`m${modNum}-hard`).value.trim();
+  const step = document.getElementById(`m${modNum}-step`).value.trim();
+  const mood = getScale(`m${modNum}-mood`);
+  await sb.from('module_reflections').insert({
+    user_id: currentUser.id, module_number: modNum,
+    what_touched: touched, where_hard: hard, real_step: step, mood, completed: true
+  });
+  alert(`Модуль ${modNum} завершено! ✓`);
+  loadModules();
+}
+
+// PROOFS
+async function loadProofs() {
+  const { data } = await sb.from('change_proofs').select('*').eq('user_id', currentUser.id).order('created_at');
+  if (!data) return;
+  const types = { despite_fear: 'proof-fear', first_time: 'proof-first', said_no: 'proof-no', allowed_myself: 'proof-allowed' };
+  Object.keys(types).forEach(type => {
+    const el = document.getElementById(types[type]);
+    if (!el) return;
+    const items = data.filter(d => d.proof_type === type);
+    el.innerHTML = items.map(i => `<div>${i.description}</div>`).join('') || '<div style="color:var(--text-hint);font-style:italic">Ще немає записів</div>';
+  });
+}
+
+async function addProof(type, inputId, listId) {
+  const input = document.getElementById(inputId);
+  const text = input.value.trim();
+  if (!text) return;
+  await sb.from('change_proofs').insert({ user_id: currentUser.id, proof_type: type, description: text });
+  input.value = '';
+  loadProofs(); loadProgress();
+}
+
+// WEEKLY WINS
+async function loadWeeklyWins() {
+  const el = document.getElementById('weekly-wins-list');
+  el.innerHTML = [1,2,3,4,5].map(w => `
+    <div class="accord">
+      <div class="accord-head" onclick="togAccord(this)"><span class="accord-title">Тиждень ${w}</span><span>▾</span></div>
+      <div class="accord-body">
+        <div class="field"><label class="field-label" style="font-size:12px">Моя найбільша перемога</label><textarea rows="2" id="ww${w}-win" placeholder="Навіть маленька — це перемога..."></textarea></div>
+        <div class="field"><label class="field-label" style="font-size:12px">Момент коли здивувала себе</label><textarea rows="2" id="ww${w}-surprised" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label" style="font-size:12px">Що я дозволила собі?</label><textarea rows="2" id="ww${w}-allowed" placeholder="..."></textarea></div>
+        <div class="field"><label class="field-label" style="font-size:12px">Моє слово тижня</label><input type="text" id="ww${w}-word" placeholder="Одне слово..."></div>
+        <button class="save-btn" onclick="saveWeeklyWin(${w})">Зберегти</button>
+      </div>
+    </div>`).join('');
+}
+
+async function saveWeeklyWin(week) {
+  const win = document.getElementById(`ww${week}-win`).value.trim();
+  const surprised = document.getElementById(`ww${week}-surprised`).value.trim();
+  const allowed = document.getElementById(`ww${week}-allowed`).value.trim();
+  const word = document.getElementById(`ww${week}-word`).value.trim();
+  await sb.from('weekly_wins').insert({ user_id: currentUser.id, week_number: week, biggest_win: win, surprised_myself: surprised, allowed_myself: allowed, word_of_week: word });
+  alert(`Тиждень ${week} збережено! ✓`);
+}
+
+// TRANSFORM
+async function saveTransform(checkpoint) {
+  const data = { user_id: currentUser.id, checkpoint };
+  if (checkpoint === 'start') {
+    data.triggers = document.getElementById('tr-s-triggers').value;
+    data.fears_relationships = document.getElementById('tr-s-fears-rel').value;
+    data.not_showing_up = document.getElementById('tr-s-not-showing').value;
+    data.postponed_decisions = document.getElementById('tr-s-postponed').value;
+    data.honest_thought = document.getElementById('tr-s-honest').value;
+    data.life_now = document.getElementById('tr-s-life-now').value;
+    data.want_to_change = document.getElementById('tr-s-want-change').value;
+    data.current_mood = getScale('tr-s-mood');
+  } else if (checkpoint === 'mid') {
+    data.triggers = document.getElementById('tr-m-triggers').value;
+    data.fears_relationships = document.getElementById('tr-m-fears').value;
+    data.not_showing_up = document.getElementById('tr-m-showing').value;
+    data.life_now = document.getElementById('tr-m-changed').value;
+    data.current_mood = getScale('tr-m-mood');
+  } else {
+    data.honest_thought = document.getElementById('tr-f-changed').value;
+    data.fears_relationships = document.getElementById('tr-f-fears-gone').value;
+    data.life_now = document.getElementById('tr-f-who').value;
+    data.want_to_change = document.getElementById('tr-f-message').value;
+    data.postponed_decisions = document.getElementById('tr-f-valuable').value;
+    data.not_showing_up = document.getElementById('tr-f-improve').value;
+    data.current_mood = getScale('tr-f-mood');
+  }
+  await sb.from('start_point').insert(data);
+  alert('Збережено! ✓');
+  loadProgress();
+}
+
+// PAUSE
+async function savePause() {
+  const when = document.getElementById('pause-when').value.trim();
+  const stage = document.getElementById('pause-stage').value.trim();
+  const what = document.getElementById('pause-what').value.trim();
+  const need = document.getElementById('pause-need').value.trim();
+  const ret = document.getElementById('pause-return').value.trim();
+  if (!what) { alert('Опиши що відбувається'); return; }
+  await sb.from('pauses').insert({ user_id: currentUser.id, stage: `${when} · ${stage}`, thought: what, instead_of_action: need, how_returned: ret });
+  document.getElementById('pause-when').value = '';
+  document.getElementById('pause-stage').value = '';
+  document.getElementById('pause-what').value = '';
+  document.getElementById('pause-need').value = '';
+  document.getElementById('pause-return').value = '';
+  loadPauses();
+}
+
+async function loadPauses() {
+  const { data } = await sb.from('pauses').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+  const el = document.getElementById('pauses-list');
+  if (!data || !data.length) { el.innerHTML = '<div class="loading">Пауз ще не було — це добре!</div>'; return; }
+  el.innerHTML = data.map(p => `
+    <div class="entry-item">
+      <div class="entry-head" onclick="togEntry(this)">
+        <span class="entry-date">${p.stage || 'Пауза'}</span>
+        <span style="font-size:11px;color:var(--text-hint)">переглянути</span>
+      </div>
+      <div class="entry-body">
+        ${p.thought ? `<div class="entry-row"><div class="entry-row-label">Що відбувалось</div><div class="entry-row-text">${p.thought}</div></div>` : ''}
+        ${p.instead_of_action ? `<div class="entry-row"><div class="entry-row-label">Що було потрібно</div><div class="entry-row-text">${p.instead_of_action}</div></div>` : ''}
+        ${p.how_returned ? `<div class="entry-row"><div class="entry-row-label">Як повернулась</div><div class="entry-row-text">${p.how_returned}</div></div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+// PROGRESS
+async function loadProgress() {
+  const [entries, pauses, proofs, startPoints] = await Promise.all([
+    sb.from('daily_entries').select('*').eq('user_id', currentUser.id),
+    sb.from('pauses').select('id').eq('user_id', currentUser.id),
+    sb.from('change_proofs').select('id').eq('user_id', currentUser.id),
+    sb.from('start_point').select('*').eq('user_id', currentUser.id).order('created_at')
+  ]);
+  const e = entries.data || [], p = pauses.data || [], pr = proofs.data || [], sp = startPoints.data || [];
+  document.getElementById('stat-entries').textContent = e.length;
+  document.getElementById('stat-pauses').textContent = p.length;
+  document.getElementById('stat-proofs').textContent = pr.length;
+  const avgMood = e.length ? Math.round(e.reduce((s,i) => s + (i.mood||0), 0) / e.length * 10) / 10 : '—';
+  document.getElementById('stat-mood').textContent = avgMood;
+
+  // Mood chart by week
+  const chartEl = document.getElementById('mood-chart');
+  const weeks = [1,2,3,4,5];
+  const now = new Date();
+  const startDate = new Date(currentUser.created_at);
+  chartEl.innerHTML = weeks.map(w => {
+    const weekEntries = e.filter(entry => {
+      const d = new Date(entry.created_at);
+      const dayDiff = Math.floor((d - startDate) / (1000*60*60*24));
+      return dayDiff >= (w-1)*7 && dayDiff < w*7;
+    });
+    if (!weekEntries.length) return `<div class="pb-item"><div class="pb-top"><span>Тиждень ${w}</span><span style="color:var(--text-hint)">—</span></div><div class="pb-track"><div class="pb-fill" style="width:0%"></div></div></div>`;
+    const avg = Math.round(weekEntries.reduce((s,i) => s+(i.mood||0),0)/weekEntries.length*10)/10;
+    const color = avg >= 7 ? 'var(--teal)' : avg >= 4 ? 'var(--amber)' : 'var(--coral)';
+    return `<div class="pb-item"><div class="pb-top"><span>Тиждень ${w}</span><span style="color:${color}">${avg}</span></div><div class="pb-track"><div class="pb-fill" style="width:${avg*10}%;background:${color}"></div></div></div>`;
+  }).join('');
+
+  // Compare start vs now
+  const compareEl = document.getElementById('compare-section');
+  const startData = sp.find(s => s.checkpoint === 'start');
+  const finalData = sp.find(s => s.checkpoint === 'final') || sp.find(s => s.checkpoint === 'mid');
+  if (startData) {
+    compareEl.innerHTML = `<div class="compare-grid">
+      <div class="compare-card compare-start"><div class="compare-label">На початку</div><div class="compare-text">${startData.honest_thought || startData.want_to_change || '...'}</div></div>
+      <div class="compare-card compare-now"><div class="compare-label">${finalData ? 'Зараз' : 'В процесі'}</div><div class="compare-text">${finalData ? (finalData.honest_thought || finalData.life_now || '...') : `${e.length} записів · стан ${avgMood}/10`}</div></div>
+    </div>`;
+  } else {
+    compareEl.innerHTML = '<div class="loading">Заповни розділ "Трансформація → Початок" щоб побачити порівняння</div>';
+  }
+}
+
+// INIT
+autoLogin();
+</script>
+</body>
+</html>

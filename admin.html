@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Адмін — Навігатор</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --purple:#534AB7; --purple-light:#EEEDFE; --teal:#0F6E56; --teal-light:#E1F5EE; --coral:#993C1D; --coral-light:#FAECE7; --amber:#854F0B; --amber-light:#FAEEDA; --bg:#F8F7FF; --card:#fff; --border:rgba(83,74,183,0.15); --text:#1a1a2e; --text2:#6b6b8a; --text3:#a0a0b8; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family: Georgia, serif; background:var(--bg); color:var(--text); }
+  .header { background:var(--purple); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
+  .header h1 { font-size:18px; color:white; font-weight:700; }
+  .header span { font-size:12px; color:rgba(255,255,255,.6); }
+  .container { max-width:1100px; margin:0 auto; padding:24px; }
+  .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  .stat { background:var(--card); border-radius:14px; padding:20px; border:1px solid var(--border); text-align:center; }
+  .stat-n { font-size:32px; font-weight:700; color:var(--text); }
+  .stat-l { font-size:12px; color:var(--text3); margin-top:4px; }
+  .card { background:var(--card); border-radius:14px; padding:20px; border:1px solid var(--border); margin-bottom:16px; }
+  .card h2 { font-size:15px; font-weight:700; margin-bottom:16px; color:var(--text); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:8px 12px; border-bottom:2px solid var(--border); color:var(--text3); font-size:11px; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+  td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text); }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:var(--bg); }
+  .badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:700; }
+  .b-hi { background:var(--teal-light); color:var(--teal); }
+  .b-mi { background:var(--amber-light); color:var(--amber); }
+  .b-lo { background:var(--coral-light); color:var(--coral); }
+  .b-none { background:var(--bg); color:var(--text3); border:1px solid var(--border); }
+  .btn { padding:8px 16px; background:var(--purple); color:white; border:none; border-radius:8px; font-size:13px; cursor:pointer; font-family:inherit; }
+  .auth-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .auth-box { background:var(--card); border-radius:16px; padding:32px; width:320px; border:1px solid var(--border); }
+  .auth-box h2 { font-size:18px; margin-bottom:20px; }
+  input { width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; margin-bottom:12px; font-family:inherit; outline:none; }
+  input:focus { border-color:var(--purple); }
+  .progress-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-top:4px; }
+  .progress-fill { height:100%; border-radius:3px; }
+  .loading { text-align:center; padding:40px; color:var(--text3); font-style:italic; }
+  .alert-row { background:var(--coral-light); border-radius:8px; padding:8px 12px; margin-bottom:6px; font-size:13px; color:#712B13; }
+</style>
+</head>
+<body>
+
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-box">
+    <h2>Адмін-панель</h2>
+    <input type="password" id="admin-pass" placeholder="Пароль адміна">
+    <button class="btn" style="width:100%" onclick="checkPass()">Увійти</button>
+    <div id="pass-error" style="color:var(--coral);font-size:13px;margin-top:8px;text-align:center"></div>
+  </div>
+</div>
+
+<div id="admin-screen" style="display:none">
+  <div class="header">
+    <h1>Навігатор «Проявленості» — Адмін</h1>
+    <span id="last-updated">Завантаження...</span>
+  </div>
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat"><div class="stat-n" id="a-users">—</div><div class="stat-l">Учасниць</div></div>
+      <div class="stat"><div class="stat-n" id="a-entries">—</div><div class="stat-l">Записів всього</div></div>
+      <div class="stat"><div class="stat-n" id="a-avg-mood" style="color:var(--purple)">—</div><div class="stat-l">Середній стан</div></div>
+      <div class="stat"><div class="stat-n" id="a-pauses" style="color:var(--coral)">—</div><div class="stat-l">Пауз</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Сигнали — потребують уваги</h2>
+      <div id="alerts-list"><div class="loading">Завантаження...</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Динаміка стану по тижнях (весь потік)</h2>
+      <div id="weeks-chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>Активність учасниць</h2>
+      <table>
+        <thead><tr><th>Ім'я</th><th>Email</th><th>Записів</th><th>Останній запис</th><th>Середній стан</th><th>Паузи</th><th>Статус</th></tr></thead>
+        <tbody id="users-table"><tr><td colspan="7" class="loading">Завантаження...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Паузи по модулях</h2>
+      <div id="pauses-by-module"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://capicxneesmvvaedfrfi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhcGljeG5lZXNtdnZhZWRmcmZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NjMzMzUsImV4cCI6MjA4OTIzOTMzNX0.ggJWnxLjWt6yfU35hYUZn4EcuzxCKPXCL-oeIcBoueY';
+const ADMIN_PASSWORD = 'proyavlenist2025';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function checkPass() {
+  const pass = document.getElementById('admin-pass').value;
+  if (pass === ADMIN_PASSWORD) {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('admin-screen').style.display = 'block';
+    loadAll();
+  } else {
+    document.getElementById('pass-error').textContent = 'Невірний пароль';
+  }
+}
+
+async function loadAll() {
+  document.getElementById('last-updated').textContent = 'Оновлено: ' + new Date().toLocaleTimeString('uk-UA');
+  const [users, entries, pauses, proofs] = await Promise.all([
+    sb.from('users').select('*').order('created_at'),
+    sb.from('daily_entries').select('*').order('created_at'),
+    sb.from('pauses').select('*').order('created_at'),
+    sb.from('change_proofs').select('id,user_id')
+  ]);
+  const U = users.data||[], E = entries.data||[], P = pauses.data||[], PR = proofs.data||[];
+
+  document.getElementById('a-users').textContent = U.length;
+  document.getElementById('a-entries').textContent = E.length;
+  document.getElementById('a-pauses').textContent = P.length;
+  const avgMood = E.length ? (E.reduce((s,i)=>s+(i.mood||0),0)/E.length).toFixed(1) : '—';
+  document.getElementById('a-avg-mood').textContent = avgMood;
+
+  // Alerts
+  const alertsEl = document.getElementById('alerts-list');
+  const alerts = [];
+  U.forEach(u => {
+    const userEntries = E.filter(e => e.user_id === u.id);
+    if (userEntries.length === 0) { alerts.push(`${u.name} — ще жодного запису в щоденнику`); return; }
+    const lastEntry = new Date(userEntries[userEntries.length-1].created_at);
+    const daysSince = Math.floor((new Date() - lastEntry)/(1000*60*60*24));
+    if (daysSince > 3) alerts.push(`${u.name} — не заходила ${daysSince} днів`);
+    const recentMoods = userEntries.slice(-3).map(e=>e.mood).filter(Boolean);
+    if (recentMoods.length >= 2 && recentMoods.every(m=>m<=3)) alerts.push(`${u.name} — стан 3 і нижче три дні поспіль`);
+  });
+  alertsEl.innerHTML = alerts.length ? alerts.map(a=>`<div class="alert-row">${a}</div>`).join('') : '<div style="color:var(--teal);font-size:13px;padding:8px">Все добре — немає тривожних сигналів ✓</div>';
+
+  // Weeks chart
+  const weeksEl = document.getElementById('weeks-chart');
+  weeksEl.innerHTML = [1,2,3,4,5].map(w => {
+    const wEntries = E.filter(e => {
+      const user = U.find(u=>u.id===e.user_id);
+      if (!user) return false;
+      const d = new Date(e.created_at);
+      const startDate = new Date(user.created_at);
+      const day = Math.floor((d-startDate)/(1000*60*60*24));
+      return day>=(w-1)*7 && day<w*7;
+    });
+    if (!wEntries.length) return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><span style="min-width:80px;font-size:12px">Тиждень ${w}</span><div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:0%;background:var(--border)"></div></div><span style="font-size:12px;color:var(--text3);min-width:30px">—</span></div>`;
+    const avg = (wEntries.reduce((s,e)=>s+(e.mood||0),0)/wEntries.length).toFixed(1);
+    const color = avg>=7?'var(--teal)':avg>=4?'var(--amber)':'var(--coral)';
+    return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><span style="min-width:80px;font-size:12px">Тиждень ${w}</span><div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${avg*10}%;background:${color}"></div></div><span style="font-size:12px;color:${color};min-width:30px;font-weight:700">${avg}</span><span style="font-size:11px;color:var(--text3)">${wEntries.length} записів</span></div>`;
+  }).join('');
+
+  // Users table
+  const tbody = document.getElementById('users-table');
+  tbody.innerHTML = U.map(u => {
+    const uEntries = E.filter(e=>e.user_id===u.id);
+    const uPauses = P.filter(p=>p.user_id===u.id);
+    const lastEntry = uEntries.length ? new Date(uEntries[uEntries.length-1].created_at) : null;
+    const daysSince = lastEntry ? Math.floor((new Date()-lastEntry)/(1000*60*60*24)) : 999;
+    const avgM = uEntries.length ? (uEntries.reduce((s,e)=>s+(e.mood||0),0)/uEntries.length).toFixed(1) : '—';
+    const moodClass = avgM>=7?'b-hi':avgM>=4?'b-mi':avgM!=='—'?'b-lo':'b-none';
+    const statusClass = daysSince<=1?'b-hi':daysSince<=3?'b-mi':daysSince<=7?'b-lo':'b-none';
+    const statusText = daysSince<=1?'активна':daysSince<=3?`${daysSince}д тому`:daysSince<=7?`${daysSince}д тому`:'не активна';
+    return `<tr>
+      <td><strong>${u.name}</strong></td>
+      <td style="color:var(--text2)">${u.email}</td>
+      <td>${uEntries.length}</td>
+      <td>${lastEntry ? lastEntry.toLocaleDateString('uk-UA') : '—'}</td>
+      <td><span class="badge ${moodClass}">${avgM}</span></td>
+      <td>${uPauses.length}</td>
+      <td><span class="badge ${statusClass}">${statusText}</span></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text3)">Учасниць ще немає</td></tr>';
+
+  // Pauses by module
+  const pausesEl = document.getElementById('pauses-by-module');
+  const modulePauses = {};
+  P.forEach(p => {
+    const stage = p.stage || '';
+    const match = stage.match(/Модуль (\d)/);
+    const key = match ? `Модуль ${match[1]}` : 'Інше';
+    modulePauses[key] = (modulePauses[key]||0)+1;
+  });
+  pausesEl.innerHTML = Object.keys(modulePauses).length ? Object.entries(modulePauses).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <span style="min-width:100px;font-size:13px">${k}</span>
+      <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${Math.min(v*20,100)}%;background:var(--coral)"></div></div>
+      <span style="font-size:13px;font-weight:700;color:var(--coral);min-width:20px">${v}</span>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:8px">Пауз ще не зафіксовано</div>';
+}
+
+document.getElementById('admin-pass').addEventListener('keypress', e => { if(e.key==='Enter') checkPass(); });
+</script>
+</body>
+</html>
